@@ -6,10 +6,11 @@
     <title>THIAGO ADMIN - Market</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <style>
         :root { 
-            --primary: #8bc34a; /* Verde de la foto */
+            --primary: #8bc34a; 
             --dark-green: #689f38;
             --white: #ffffff;
             --bg: #f9f9f9;
@@ -19,7 +20,6 @@
 
         body { font-family: 'Segoe UI', Roboto, sans-serif; background: var(--bg); margin: 0; color: var(--text); padding-bottom: 80px; }
         
-        /* Header Estilo App */
         header { 
             background: var(--primary); 
             color: white; 
@@ -32,14 +32,24 @@
         .header-top { display: flex; justify-content: space-between; align-items: center; }
         .header-top h1 { margin: 0; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 1px; }
 
-        /* Buscador Inteligente */
         .search-box { margin-top: 10px; position: relative; }
         .search-box input { 
             width: 100%; padding: 12px; border-radius: 25px; border: none; 
             box-sizing: border-box; font-size: 16px; outline: none;
         }
 
-        /* Botones de Acción */
+        /* FILTROS DE CATEGORÍA */
+        .category-filter {
+            display: flex; overflow-x: auto; padding: 10px; gap: 8px;
+            background: #fff; border-bottom: 1px solid #eee;
+        }
+        .category-filter::-webkit-scrollbar { display: none; }
+        .chip {
+            padding: 8px 15px; background: #eee; border-radius: 20px;
+            font-size: 13px; white-space: nowrap; color: #555; font-weight: 500;
+        }
+        .chip.active { background: var(--primary); color: white; }
+
         .admin-actions { padding: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .btn-action { 
             padding: 12px; border: none; border-radius: 8px; color: white; 
@@ -48,7 +58,6 @@
         .btn-add { background: #333; }
         .btn-recipes { background: var(--dark-green); }
 
-        /* Lista de Productos Móvil */
         .product-list { padding: 10px; }
         .product-card { 
             background: white; border-radius: 12px; padding: 12px; margin-bottom: 12px;
@@ -66,7 +75,6 @@
         .edit { color: #aaa; }
         .delete { color: var(--danger); }
 
-        /* Modal Moderno */
         .modal { 
             display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); 
             z-index: 200; align-items: center; justify-content: center; padding: 20px;
@@ -80,7 +88,17 @@
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; }
         .form-group input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         
-        .upload-area { border: 2px dashed #ccc; padding: 10px; text-align: center; border-radius: 8px; background: #fafafa; }
+        .upload-area { border: 2px dashed #ccc; padding: 10px; text-align: center; border-radius: 8px; background: #fafafa; position: relative; }
+        
+        #wrapperPreview { position: relative; display: inline-block; }
+        .btn-descartar {
+            position: absolute; top: -10px; right: -10px;
+            background: var(--danger); color: white; border: none;
+            width: 25px; height: 25px; border-radius: 50%;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 10;
+        }
+
         .btn-save { background: var(--primary); color: white; border: none; width: 100%; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 1rem; }
     </style>
 </head>
@@ -92,9 +110,19 @@
             <i class="fas fa-bars"></i>
         </div>
         <div class="search-box">
-            <input type="text" id="smartSearch" placeholder="Buscar producto (Enter para ir)...">
+            <input type="text" id="smartSearch" placeholder="Buscar por nombre...">
         </div>
     </header>
+
+    <div class="category-filter" id="catFilter">
+        <div class="chip active" onclick="filtrarCategoria('Todas', this)">Todas</div>
+        <div class="chip" onclick="filtrarCategoria('Abarrotes', this)">🍎 Abarrotes</div>
+        <div class="chip" onclick="filtrarCategoria('Bebidas', this)">🥛 Bebidas</div>
+        <div class="chip" onclick="filtrarCategoria('Limpieza', this)">🧹 Limpieza</div>
+        <div class="chip" onclick="filtrarCategoria('Mascotas', this)">🐶 Mascotas</div>
+        <div class="chip" onclick="filtrarCategoria('Moda', this)">👕 Moda</div>
+        <div class="chip" onclick="filtrarCategoria('OFERTA', this)">🔥 Ofertas</div>
+    </div>
 
     <div class="admin-actions">
         <button class="btn-action btn-add" onclick="abrirModal('crear')">
@@ -105,8 +133,7 @@
         </button>
     </div>
 
-    <main class="product-list" id="productContainer">
-        </main>
+    <main class="product-list" id="productContainer"></main>
 
     <div class="modal" id="modalProducto">
         <div class="modal-content">
@@ -117,18 +144,18 @@
                     <label>Nombre</label>
                     <input type="text" id="nombre" required>
                 </div>
-         <div class="form-group">
-    <label>Categoría General</label>
-    <select id="categoria" required style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 16px;">
-        <option value="" disabled selected>Selecciona una familia...</option>
-        <option value="Abarrotes">🍎 Abarrotes, Frutas y Verduras</option>
-        <option value="Bebidas y Lácteos">🥛 Bebidas, Lácteos y Huevos</option>
-        <option value="Limpieza y Hogar">🧹 Limpieza y Hogar</option>
-        <option value="Librería y Oficina">📚 Librería, Útiles y Oficina</option>
-        <option value="Mascotas">🐶 Todo para Mascotas</option>
-        <option value="Moda y Calzado">👕 Ropa y Calzado</option>
-    </select>
-</div>
+                <div class="form-group">
+                    <label>Categoría General</label>
+                    <select id="categoria" required style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 16px;">
+                        <option value="" disabled selected>Selecciona una familia...</option>
+                        <option value="Abarrotes">🍎 Abarrotes, Frutas y Verduras</option>
+                        <option value="Bebidas y Lácteos">🥛 Bebidas, Lácteos y Huevos</option>
+                        <option value="Limpieza y Hogar">🧹 Limpieza y Hogar</option>
+                        <option value="Librería y Oficina">📚 Librería, Útiles y Oficina</option>
+                        <option value="Mascotas">🐶 Todo para Mascotas</option>
+                        <option value="Moda y Calzado">👕 Ropa y Calzado</option>
+                    </select>
+                </div>
                 <div class="form-group" style="display:flex; align-items:center; gap:10px;">
                     <input type="checkbox" id="ofertaCheck" style="width:auto">
                     <label for="ofertaCheck" style="margin:0">Marcar como OFERTA</label>
@@ -138,17 +165,20 @@
                     <input type="number" id="precio" step="0.01" required>
                 </div>
                 <hr>
-               <div class="form-group">
-    <label>Foto del Producto</label>
-    <div class="upload-area">
-        <input type="file" id="archivoFoto" accept="image/*" capture="environment" onchange="previewImagen(event)">
-        <p style="font-size: 12px; color: #666;">Toca para abrir cámara o galería</p>
-    </div>
-    <div id="wrapperPreview" style="display:none; margin-top:10px; text-align:center;">
-        <img id="imgPrevia" src="" style="width: 100px; height: 100px; object-fit: cover; border-radius: 10px; border: 2px solid var(--primary);">
-        <p style="font-size: 11px; color: var(--primary);">Foto lista para subir</p>
-    </div>
-</div>
+                <div class="form-group">
+                    <label>Foto del Producto</label>
+                    <div class="upload-area">
+                        <input type="file" id="archivoFoto" accept="image/*" onchange="previewImagen(event)">
+                        <p style="font-size: 12px; color: #666;">Toca para abrir cámara o galería</p>
+                    </div>
+                    <div style="text-align: center; margin-top: 15px;">
+                        <div id="wrapperPreview" style="display:none;">
+                            <button type="button" class="btn-descartar" onclick="descartarImagen()"><i class="fas fa-times"></i></button>
+                            <img id="imgPrevia" src="" style="width: 100px; height: 100px; object-fit: cover; border-radius: 10px; border: 2px solid var(--primary);">
+                            <p id="txtFotoLista" style="font-size: 11px; color: var(--primary); margin: 5px 0 0 0;">Foto lista</p>
+                        </div>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label>O pegar URL de imagen</label>
                     <input type="text" id="urlFoto" placeholder="https://...">
@@ -165,7 +195,13 @@
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         
         let productosLocal = [];
-        let modoEdicion = false;
+
+        function mostrarNotificacion(mensaje, icono = 'success') {
+            const Toast = Swal.mixin({
+                toast: true, position: 'top-end', showConfirmButton: false, timer: 2500, timerProgressBar: true
+            });
+            Toast.fire({ icon: icono, title: mensaje });
+        }
 
         async function cargar() {
             const { data, error } = await _supabase.from('productos').select('*').order('id', { ascending: false });
@@ -198,110 +234,120 @@
             });
         }
 
-        document.getElementById('smartSearch').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                const term = e.target.value.toLowerCase();
-                const filtrados = productosLocal.filter(p => p.nombre.toLowerCase().includes(term));
-                render(filtrados);
-                window.scrollTo(0, document.querySelector('main').offsetTop - 100);
-            }
+        // BUSCADOR INTELIGENTE (TIEMPO REAL)
+        document.getElementById('smartSearch').addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            const filtrados = productosLocal.filter(p => p.nombre.toLowerCase().includes(term));
+            render(filtrados);
         });
 
-       
+        // FILTRO POR CATEGORÍA
+        function filtrarCategoria(cat, elemento) {
+            // Estética de los chips
+            document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+            elemento.classList.add('active');
+
+            if (cat === 'Todas') {
+                render(productosLocal);
+            } else {
+                const filtrados = productosLocal.filter(p => p.categoria.includes(cat));
+                render(filtrados);
+            }
+        }
+
+        function previewImagen(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('imgPrevia').src = e.target.result;
+                    document.getElementById('wrapperPreview').style.display = 'inline-block';
+                    document.getElementById('txtFotoLista').style.display = 'block';
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function descartarImagen() {
+            document.getElementById('archivoFoto').value = "";
+            document.getElementById('imgPrevia').src = "";
+            document.getElementById('wrapperPreview').style.display = 'none';
+        }
+
         document.getElementById('productForm').onsubmit = async (e) => {
             e.preventDefault();
             const btn = document.getElementById('btnSubmit');
-            btn.disabled = true;
-            btn.innerText = "PROCESANDO...";
+            btn.disabled = true; btn.innerText = "PROCESANDO...";
 
             try {
                 let urlFinal = document.getElementById('urlFoto').value;
                 const file = document.getElementById('archivoFoto').files[0];
 
-        
                 if (file) {
-                    const fileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
-                    const { data: upData, error: upErr } = await _supabase.storage
-                        .from('fotos_productos')
-                        .upload(fileName, file);
-                    if (upErr) throw upErr;
-                    
+                    const fileName = `${Date.now()}_prod`;
+                    await _supabase.storage.from('fotos_productos').upload(fileName, file);
                     const { data: urlData } = _supabase.storage.from('fotos_productos').getPublicUrl(fileName);
                     urlFinal = urlData.publicUrl;
                 }
 
-                let catFinal = document.getElementById('categoria').value.trim();
-                if (document.getElementById('ofertaCheck').checked && !catFinal.includes("- OFERTA")) {
-                    catFinal += " - OFERTA"; 
-                }
+                let catFinal = document.getElementById('categoria').value;
+                if (document.getElementById('ofertaCheck').checked) catFinal += " - OFERTA";
 
-                const datos = {
-                    nombre: document.getElementById('nombre').value,
-                    categoria: catFinal,
-                    precio: parseFloat(document.getElementById('precio').value),
-                    imagen: urlFinal
-                };
+                const datos = { nombre: document.getElementById('nombre').value, categoria: catFinal, precio: parseFloat(document.getElementById('precio').value), imagen: urlFinal };
 
                 if (modoEdicion) {
                     await _supabase.from('productos').update(datos).eq('id', document.getElementById('prodId').value);
+                    mostrarNotificacion("Actualizado");
                 } else {
                     await _supabase.from('productos').insert([datos]);
+                    mostrarNotificacion("Guardado");
                 }
-
-                cerrarModal();
-                cargar();
+                cerrarModal(); cargar();
             } catch (err) {
-                alert("Error: " + err.message);
+                Swal.fire('Error', err.message, 'error');
             } finally {
-                btn.disabled = false;
-                btn.innerText = "GUARDAR CAMBIOS";
+                btn.disabled = false; btn.innerText = "GUARDAR CAMBIOS";
             }
         };
 
+        let modoEdicion = false;
         function abrirModal(modo) {
             modoEdicion = (modo === 'editar');
             document.getElementById('modalTitle').innerText = modoEdicion ? "Editar Producto" : "Nuevo Producto";
+            descartarImagen();
             if (!modoEdicion) document.getElementById('productForm').reset();
             document.getElementById('modalProducto').classList.add('active');
         }
 
         function cerrarModal() { document.getElementById('modalProducto').classList.remove('active'); }
 
-       function prepararEdicion(id) {
-   
-    const p = productosLocal.find(item => item.id === id);
-    if (!p) return;
+        function prepararEdicion(id) {
+            const p = productosLocal.find(item => item.id === id);
+            if (!p) return;
+            document.getElementById('prodId').value = p.id;
+            document.getElementById('nombre').value = p.nombre;
+            document.getElementById('precio').value = p.precio;
+            document.getElementById('urlFoto').value = p.imagen;
 
+            if (p.imagen) {
+                document.getElementById('imgPrevia').src = p.imagen;
+                document.getElementById('wrapperPreview').style.display = 'inline-block';
+                document.getElementById('txtFotoLista').style.display = 'none';
+            }
 
-    document.getElementById('prodId').value = p.id;
-    document.getElementById('nombre').value = p.nombre;
-    document.getElementById('precio').value = p.precio;
-    document.getElementById('urlFoto').value = p.imagen;
-    
+            document.getElementById('ofertaCheck').checked = p.categoria.includes("OFERTA");
+            document.getElementById('categoria').value = p.categoria.replace(" - OFERTA", "");
+            abrirModal('editar');
+        }
 
-    const preview = document.getElementById('imgPrevia');
-    const wrapper = document.getElementById('wrapperPreview');
-    if (p.imagen) {
-        preview.src = p.imagen;
-        wrapper.style.display = 'block';
-    }
-
-   
-    if (p.categoria.includes(" - OFERTA")) {
-        const catLimpia = p.categoria.replace(" - OFERTA", "");
-        document.getElementById('categoria').value = catLimpia;
-        document.getElementById('ofertaCheck').checked = true;
-    } else {
-        document.getElementById('categoria').value = p.categoria;
-        document.getElementById('ofertaCheck').checked = false;
-    }
-
-
-    abrirModal('editar');
-}
         async function eliminar(id) {
-            if (confirm("¿Borrar este producto?")) {
+            const res = await Swal.fire({
+                title: '¿Borrar?', icon: 'warning', showCancelButton: true,
+                confirmButtonColor: '#8bc34a', cancelButtonColor: '#ff5252', confirmButtonText: 'Sí, borrar'
+            });
+            if (res.isConfirmed) {
                 await _supabase.from('productos').delete().eq('id', id);
+                mostrarNotificacion("Eliminado", 'info');
                 cargar();
             }
         }
