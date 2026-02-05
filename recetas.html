@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>THIAGO RECETAS</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --p: #8bc34a; --bg: #f4f7f6; --dark: #333; }
+        body { font-family: system-ui, sans-serif; background: var(--bg); margin: 0; padding-bottom: 20px; font-size: 14px; color: var(--dark); }
+        header { background: var(--p); color: #fff; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .btn-h { background: rgba(255,255,255,0.25); border: none; color: #fff; padding: 7px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; text-decoration: none; }
+        
+  
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; }
+        .card { background: #fff; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 2px 8px rgba(0,0,0,0.06); position: relative; border: 1px solid #eee; }
+        .card img { width: 100%; aspect-ratio: 1/1; object-fit: cover; background: #eee; }
+        .card-info { padding: 8px; }
+        .card-info h3 { margin: 0; font-size: 13px; text-transform: capitalize; line-height: 1.2; height: 32px; overflow: hidden; }
+        .card-info p { margin: 4px 0 0; font-size: 11px; color: var(--p); font-weight: bold; }
+        .btns { position: absolute; top: 6px; right: 6px; display: flex; gap: 4px; }
+        .b-m { background: rgba(255,255,255,0.9); border: none; width: 28px; height: 28px; border-radius: 6px; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); color: #555; }
+
+    
+        .mod { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center; padding: 12px; }
+        .mod.act { display: flex; }
+        .cont { background: #fff; width: 100%; max-width: 400px; border-radius: 15px; padding: 18px; max-height: 92vh; overflow-y: auto; }
+        .g { margin-bottom: 12px; }
+        label { font-size: 11px; font-weight: 700; display: block; margin-bottom: 4px; color: #666; }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box; background: #fafafa; }
+        .btn-s { background: var(--p); color: #fff; border: none; width: 100%; padding: 14px; border-radius: 8px; font-weight: bold; font-size: 15px; margin-top: 10px; }
+        .pre { width: 100%; height: 130px; object-fit: cover; border-radius: 8px; display: none; margin-top: 8px; border: 1px solid #eee; }
+        .div-line { height: 1px; background: #eee; margin: 15px 0; position: relative; }
+        .div-line span { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #fff; padding: 0 10px; font-size: 10px; color: #999; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <a href="admin.html" class="btn-h"><i class="fas fa-arrow-left"></i> ADMIN</a>
+        <b style="letter-spacing: 1px;">THIAGO RECETAS</b>
+        <button class="btn-h" onclick="abr('c')">+ NUEVA</button>
+    </header>
+
+    <main class="grid" id="box"></main>
+
+    <div class="mod" id="mR">
+        <div class="cont">
+            <h4 id="mT" style="margin:0 0 15px; text-align:center">Nueva Receta</h4>
+            <form id="fR">
+                <input type="hidden" id="idR">
+                <div class="g"><label>Nombre de la Receta</label><input type="text" id="titulo" required placeholder="Ej: Ají de Gallina"></div>
+                <div class="g">
+                    <label>Categoría</label>
+                    <select id="categoria">
+                        <option value="Criollo">Criollo</option>
+                        <option value="Postres">Postres</option>
+                        <option value="Sopas">Sopas</option>
+                        <option value="Otros">Otros</option>
+                    </select>
+                </div>
+                <div style="display:flex; gap:8px">
+                    <div class="g" style="flex:1"><label>Tiempo</label><input type="text" id="tiempo" placeholder="30 min"></div>
+                    <div class="g" style="flex:1"><label>Porciones</label><input type="text" id="porciones" placeholder="4 pers."></div>
+                </div>
+                <div class="g"><label>Ingredientes (Uno por línea)</label><textarea id="ingredientes" rows="3" placeholder="1kg Pollo&#10;Ají amarillo..."></textarea></div>
+                <div class="g"><label>Preparación (Pasos)</label><textarea id="pasos" rows="3" placeholder="1. Hervir el pollo..."></textarea></div>
+                
+                <div class="div-line"><span>IMAGEN</span></div>
+                
+                <div class="g">
+                    <label>Opción A: Subir Foto / Cámara</label>
+                    <input type="file" id="archivo" accept="image/*" capture="environment" onchange="vP(this)">
+                </div>
+                <div class="g">
+                    <label>Opción B: Pegar Enlace (URL)</label>
+                    <input type="text" id="urlInput" placeholder="https://ejemplo.com/foto.jpg" oninput="vU(this.value)">
+                </div>
+                
+                <img id="imgP" class="pre">
+                <input type="hidden" id="urlA">
+
+                <button type="submit" id="bS" class="btn-s">GUARDAR RECETA</button>
+                <button type="button" onclick="cer()" style="width:100%; background:none; border:none; color:#bbb; margin-top:12px; font-size:12px">Cancelar y Salir</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const SB_U = 'https://yvyrbmlzlfrqatxwfemm.supabase.co';
+        const SB_K = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eXJibWx6bGZycWF0eHdmZW1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4ODU5NDMsImV4cCI6MjA4NDQ2MTk0M30.a3P3tvZPOLki21cmthcWMtHU5kXvjdqpflM7ws8wzOs';
+        const _s = supabase.createClient(SB_U, SB_K);
+        let list = [], ed = false;
+
+        async function cargar() {
+            const { data } = await _s.from('recetas').select('*').order('id', {ascending: false});
+            list = data || [];
+            document.getElementById('box').innerHTML = list.map(r => `
+                <div class="card">
+                    <img src="${r.imagen_url}" onerror="this.src='https://via.placeholder.com/150?text=Sin+Foto'">
+                    <div class="btns">
+                        <button class="b-m" onclick="prep(${r.id})"><i class="fas fa-pen"></i></button>
+                        <button class="b-m" style="color:#ef5350" onclick="del(${r.id})"><i class="fas fa-trash"></i></button>
+                    </div>
+                    <div class="card-info">
+                        <h3>${r.titulo}</h3>
+                        <p>${r.categoria} • ${r.tiempo || 'N/A'}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function vP(i) {
+            if (i.files && i.files[0]) {
+                const r = new FileReader();
+                r.onload = (e) => { 
+                    const m = document.getElementById('imgP'); 
+                    m.src = e.target.result; m.style.display = 'block'; 
+                    document.getElementById('urlInput').value = ""; 
+                }
+                r.readAsDataURL(i.files[0]);
+            }
+        }
+
+        function vU(val) {
+            if (val.length > 5) {
+                const m = document.getElementById('imgP');
+                m.src = val; m.style.display = 'block';
+                document.getElementById('archivo').value = ""; 
+            }
+        }
+
+        function abr(m) { 
+            ed = (m === 'e'); 
+            document.getElementById('mT').innerText = ed ? "Editar Receta" : "Nueva Receta";
+            if(!ed){ document.getElementById('fR').reset(); document.getElementById('imgP').style.display='none'; }
+            document.getElementById('mR').classList.add('act'); 
+        }
+        function cer() { document.getElementById('mR').classList.remove('act'); }
+
+        function prep(id) {
+            const r = list.find(x => x.id === id);
+            document.getElementById('idR').value = r.id;
+            document.getElementById('titulo').value = r.titulo;
+            document.getElementById('categoria').value = r.categoria;
+            document.getElementById('tiempo').value = r.tiempo;
+            document.getElementById('porciones').value = r.porciones;
+            document.getElementById('ingredientes').value = Array.isArray(r.ingredientes) ? r.ingredientes.join('\n') : r.ingredientes;
+            document.getElementById('pasos').value = Array.isArray(r.pasos) ? r.pasos.join('\n') : r.pasos;
+            document.getElementById('urlA').value = r.imagen_url;
+            document.getElementById('urlInput').value = r.imagen_url;
+            const m = document.getElementById('imgP'); m.src = r.imagen_url; m.style.display = 'block';
+            abr('e');
+        }
+
+        document.getElementById('fR').onsubmit = async (e) => {
+            e.preventDefault();
+            const b = document.getElementById('bS'); b.disabled = true; b.innerText = "GUARDANDO...";
+            try {
+                let urlFinal = document.getElementById('urlInput').value || document.getElementById('urlA').value;
+                const f = document.getElementById('archivo').files[0];
+                
+                if (f) {
+                    const n = `rec_${Date.now()}`;
+                    await _s.storage.from('fotos_recetas').upload(n, f);
+                    urlFinal = _s.storage.from('fotos_recetas').getPublicUrl(n).data.publicUrl;
+                }
+
+                const datos = { 
+                    titulo: document.getElementById('titulo').value, 
+                    categoria: document.getElementById('categoria').value, 
+                    tiempo: document.getElementById('tiempo').value, 
+                    porciones: document.getElementById('porciones').value, 
+                    ingredientes: document.getElementById('ingredientes').value.split('\n').filter(x => x.trim() !== ""),
+                    pasos: document.getElementById('pasos').value.split('\n').filter(x => x.trim() !== ""),
+                    imagen_url: urlFinal
+                };
+
+                if (ed) await _s.from('recetas').update(datos).eq('id', document.getElementById('idR').value);
+                else await _s.from('recetas').insert([datos]);
+
+                cer(); cargar();
+            } catch (ex) { alert("Error: " + ex.message); }
+            finally { b.disabled = false; b.innerText = "GUARDAR RECETA"; }
+        };
+
+        async function del(id) { if(confirm("¿Eliminar esta receta definitivamente?")) { await _s.from('recetas').delete().eq('id', id); cargar(); } }
+        window.onload = cargar;
+    </script>
+</body>
+</html>

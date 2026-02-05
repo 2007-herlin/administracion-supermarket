@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>THIAGO ADMIN - Market</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        :root { 
+            --primary: #8bc34a; /* Verde de la foto */
+            --dark-green: #689f38;
+            --white: #ffffff;
+            --bg: #f9f9f9;
+            --text: #333;
+            --danger: #ff5252;
+        }
+
+        body { font-family: 'Segoe UI', Roboto, sans-serif; background: var(--bg); margin: 0; color: var(--text); padding-bottom: 80px; }
+        
+        /* Header Estilo App */
+        header { 
+            background: var(--primary); 
+            color: white; 
+            padding: 15px; 
+            position: sticky; 
+            top: 0; 
+            z-index: 100;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .header-top { display: flex; justify-content: space-between; align-items: center; }
+        .header-top h1 { margin: 0; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* Buscador Inteligente */
+        .search-box { margin-top: 10px; position: relative; }
+        .search-box input { 
+            width: 100%; padding: 12px; border-radius: 25px; border: none; 
+            box-sizing: border-box; font-size: 16px; outline: none;
+        }
+
+        /* Botones de Acción */
+        .admin-actions { padding: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn-action { 
+            padding: 12px; border: none; border-radius: 8px; color: white; 
+            font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn-add { background: #333; }
+        .btn-recipes { background: var(--dark-green); }
+
+        /* Lista de Productos Móvil */
+        .product-list { padding: 10px; }
+        .product-card { 
+            background: white; border-radius: 12px; padding: 12px; margin-bottom: 12px;
+            display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .img-container { width: 70px; height: 70px; border-radius: 8px; overflow: hidden; background: #eee; flex-shrink: 0; }
+        .img-container img { width: 100%; height: 100%; object-fit: cover; }
+        .info { flex-grow: 1; }
+        .info h3 { margin: 0; font-size: 1rem; color: #222; }
+        .info p { margin: 3px 0; font-size: 0.85rem; color: #888; text-transform: uppercase; }
+        .price { color: var(--primary); font-weight: bold; font-size: 1.1rem; }
+        
+        .card-actions { display: flex; flex-direction: column; gap: 10px; }
+        .btn-icon { background: none; border: none; font-size: 1.2rem; cursor: pointer; }
+        .edit { color: #aaa; }
+        .delete { color: var(--danger); }
+
+        /* Modal Moderno */
+        .modal { 
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); 
+            z-index: 200; align-items: center; justify-content: center; padding: 20px;
+        }
+        .modal.active { display: flex; }
+        .modal-content { 
+            background: white; width: 100%; max-width: 500px; border-radius: 15px; 
+            padding: 20px; max-height: 90vh; overflow-y: auto;
+        }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; }
+        .form-group input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        
+        .upload-area { border: 2px dashed #ccc; padding: 10px; text-align: center; border-radius: 8px; background: #fafafa; }
+        .btn-save { background: var(--primary); color: white; border: none; width: 100%; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 1rem; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-top">
+            <h1>Thiago Admin</h1>
+            <i class="fas fa-bars"></i>
+        </div>
+        <div class="search-box">
+            <input type="text" id="smartSearch" placeholder="Buscar producto (Enter para ir)...">
+        </div>
+    </header>
+
+    <div class="admin-actions">
+        <button class="btn-action btn-add" onclick="abrirModal('crear')">
+            <i class="fas fa-plus"></i> Nuevo Producto
+        </button>
+        <button class="btn-action btn-recipes" onclick="location.href='recetas.html'">
+            <i class="fas fa-book-open"></i> Recetas
+        </button>
+    </div>
+
+    <main class="product-list" id="productContainer">
+        </main>
+
+    <div class="modal" id="modalProducto">
+        <div class="modal-content">
+            <h3 id="modalTitle">Nuevo Producto</h3>
+            <form id="productForm">
+                <input type="hidden" id="prodId">
+                <div class="form-group">
+                    <label>Nombre</label>
+                    <input type="text" id="nombre" required>
+                </div>
+         <div class="form-group">
+    <label>Categoría General</label>
+    <select id="categoria" required style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 16px;">
+        <option value="" disabled selected>Selecciona una familia...</option>
+        <option value="Abarrotes">🍎 Abarrotes, Frutas y Verduras</option>
+        <option value="Bebidas y Lácteos">🥛 Bebidas, Lácteos y Huevos</option>
+        <option value="Limpieza y Hogar">🧹 Limpieza y Hogar</option>
+        <option value="Librería y Oficina">📚 Librería, Útiles y Oficina</option>
+        <option value="Mascotas">🐶 Todo para Mascotas</option>
+        <option value="Moda y Calzado">👕 Ropa y Calzado</option>
+    </select>
+</div>
+                <div class="form-group" style="display:flex; align-items:center; gap:10px;">
+                    <input type="checkbox" id="ofertaCheck" style="width:auto">
+                    <label for="ofertaCheck" style="margin:0">Marcar como OFERTA</label>
+                </div>
+                <div class="form-group">
+                    <label>Precio (S/)</label>
+                    <input type="number" id="precio" step="0.01" required>
+                </div>
+                <hr>
+               <div class="form-group">
+    <label>Foto del Producto</label>
+    <div class="upload-area">
+        <input type="file" id="archivoFoto" accept="image/*" capture="environment" onchange="previewImagen(event)">
+        <p style="font-size: 12px; color: #666;">Toca para abrir cámara o galería</p>
+    </div>
+    <div id="wrapperPreview" style="display:none; margin-top:10px; text-align:center;">
+        <img id="imgPrevia" src="" style="width: 100px; height: 100px; object-fit: cover; border-radius: 10px; border: 2px solid var(--primary);">
+        <p style="font-size: 11px; color: var(--primary);">Foto lista para subir</p>
+    </div>
+</div>
+                <div class="form-group">
+                    <label>O pegar URL de imagen</label>
+                    <input type="text" id="urlFoto" placeholder="https://...">
+                </div>
+                <button type="submit" id="btnSubmit" class="btn-save">GUARDAR CAMBIOS</button>
+                <button type="button" onclick="cerrarModal()" style="background:none; border:none; width:100%; margin-top:10px; color:#888;">Cancelar</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://yvyrbmlzlfrqatxwfemm.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eXJibWx6bGZycWF0eHdmZW1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4ODU5NDMsImV4cCI6MjA4NDQ2MTk0M30.a3P3tvZPOLki21cmthcWMtHU5kXvjdqpflM7ws8wzOs';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        let productosLocal = [];
+        let modoEdicion = false;
+
+        async function cargar() {
+            const { data, error } = await _supabase.from('productos').select('*').order('id', { ascending: false });
+            if (error) return;
+            productosLocal = data;
+            render(data);
+        }
+
+        function render(lista) {
+            const container = document.getElementById('productContainer');
+            container.innerHTML = '';
+            lista.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'product-card';
+                div.innerHTML = `
+                    <div class="img-container">
+                        <img src="${p.imagen}" onerror="this.src='https://via.placeholder.com/100'">
+                    </div>
+                    <div class="info">
+                        <p>${p.categoria}</p>
+                        <h3>${p.nombre}</h3>
+                        <div class="price">S/ ${parseFloat(p.precio).toFixed(2)}</div>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn-icon edit" onclick="prepararEdicion(${p.id})"><i class="fas fa-edit"></i></button>
+                        <button class="btn-icon delete" onclick="eliminar(${p.id})"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        document.getElementById('smartSearch').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const term = e.target.value.toLowerCase();
+                const filtrados = productosLocal.filter(p => p.nombre.toLowerCase().includes(term));
+                render(filtrados);
+                window.scrollTo(0, document.querySelector('main').offsetTop - 100);
+            }
+        });
+
+       
+        document.getElementById('productForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btnSubmit');
+            btn.disabled = true;
+            btn.innerText = "PROCESANDO...";
+
+            try {
+                let urlFinal = document.getElementById('urlFoto').value;
+                const file = document.getElementById('archivoFoto').files[0];
+
+        
+                if (file) {
+                    const fileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+                    const { data: upData, error: upErr } = await _supabase.storage
+                        .from('fotos_productos')
+                        .upload(fileName, file);
+                    if (upErr) throw upErr;
+                    
+                    const { data: urlData } = _supabase.storage.from('fotos_productos').getPublicUrl(fileName);
+                    urlFinal = urlData.publicUrl;
+                }
+
+                let catFinal = document.getElementById('categoria').value.trim();
+                if (document.getElementById('ofertaCheck').checked && !catFinal.includes("- OFERTA")) {
+                    catFinal += " - OFERTA"; 
+                }
+
+                const datos = {
+                    nombre: document.getElementById('nombre').value,
+                    categoria: catFinal,
+                    precio: parseFloat(document.getElementById('precio').value),
+                    imagen: urlFinal
+                };
+
+                if (modoEdicion) {
+                    await _supabase.from('productos').update(datos).eq('id', document.getElementById('prodId').value);
+                } else {
+                    await _supabase.from('productos').insert([datos]);
+                }
+
+                cerrarModal();
+                cargar();
+            } catch (err) {
+                alert("Error: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "GUARDAR CAMBIOS";
+            }
+        };
+
+        function abrirModal(modo) {
+            modoEdicion = (modo === 'editar');
+            document.getElementById('modalTitle').innerText = modoEdicion ? "Editar Producto" : "Nuevo Producto";
+            if (!modoEdicion) document.getElementById('productForm').reset();
+            document.getElementById('modalProducto').classList.add('active');
+        }
+
+        function cerrarModal() { document.getElementById('modalProducto').classList.remove('active'); }
+
+       function prepararEdicion(id) {
+   
+    const p = productosLocal.find(item => item.id === id);
+    if (!p) return;
+
+
+    document.getElementById('prodId').value = p.id;
+    document.getElementById('nombre').value = p.nombre;
+    document.getElementById('precio').value = p.precio;
+    document.getElementById('urlFoto').value = p.imagen;
+    
+
+    const preview = document.getElementById('imgPrevia');
+    const wrapper = document.getElementById('wrapperPreview');
+    if (p.imagen) {
+        preview.src = p.imagen;
+        wrapper.style.display = 'block';
+    }
+
+   
+    if (p.categoria.includes(" - OFERTA")) {
+        const catLimpia = p.categoria.replace(" - OFERTA", "");
+        document.getElementById('categoria').value = catLimpia;
+        document.getElementById('ofertaCheck').checked = true;
+    } else {
+        document.getElementById('categoria').value = p.categoria;
+        document.getElementById('ofertaCheck').checked = false;
+    }
+
+
+    abrirModal('editar');
+}
+        async function eliminar(id) {
+            if (confirm("¿Borrar este producto?")) {
+                await _supabase.from('productos').delete().eq('id', id);
+                cargar();
+            }
+        }
+
+        window.onload = cargar;
+    </script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso Admin</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --p: #8bc34a; --bg: #f4f7f6; }
+        body { font-family: system-ui, sans-serif; background: var(--bg); display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 85%; max-width: 340px; text-align: center; }
+        .logo { width: 70px; height: 70px; background: var(--p); color: white; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 35px; margin: 0 auto 20px; transform: rotate(-10deg); }
+        .g { margin-bottom: 15px; position: relative; }
+        .g i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #bbb; }
+        input { width: 100%; padding: 12px 12px 12px 40px; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; font-size: 16px; outline: none; }
+        .btn { background: var(--p); color: white; border: none; width: 100%; padding: 14px; border-radius: 10px; font-weight: bold; font-size: 16px; cursor: pointer; }
+        #msg { margin-top: 15px; font-size: 12px; display: none; padding: 10px; border-radius: 8px; line-height: 1.4; }
+        .err { background: #fee; color: #e53935; border: 1px solid #fcc; }
+        .ok { background: #efe; color: #43a047; border: 1px solid #cfa; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div class="logo"><i class="fas fa-utensils"></i></div>
+        <h2 style="margin:0">THIAGO ADMIN</h2>
+        <p style="color:#888; font-size:13px">Gestión de Recetas</p>
+        
+        <form id="lF">
+            <div class="g"><i class="fas fa-user"></i><input type="text" id="u" placeholder="Nuevo Usuario" required></div>
+            <div class="g"><i class="fas fa-lock"></i><input type="password" id="d" placeholder="Nueva Clave (DNI)" required></div>
+            <button type="submit" id="b" class="btn">ENTRAR / REGISTRAR</button>
+        </form>
+        <div id="msg"></div>
+    </div>
+
+    <script>
+        const SB_U = 'https://yvyrbmlzlfrqatxwfemm.supabase.co';
+        const SB_K = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eXJibWx6bGZycWF0eHdmZW1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4ODU5NDMsImV4cCI6MjA4NDQ2MTk0M30.a3P3tvZPOLki21cmthcWMtHU5kXvjdqpflM7ws8wzOs';
+        const _s = supabase.createClient(SB_U, SB_K);
+
+        document.getElementById('lF').onsubmit = async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('b');
+            const m = document.getElementById('msg');
+            const user = document.getElementById('u').value.trim();
+            const dni = document.getElementById('d').value.trim();
+
+            btn.disabled = true; btn.innerText = "VERIFICANDO...";
+            m.style.display = "none";
+
+            try {
+                // 1. Consultar si existen usuarios
+                const { data: ex, error: e1 } = await _s.from('usuarios').select('id');
+                if (e1) throw new Error("Error de conexión: " + e1.message);
+
+                if (!ex || ex.length === 0) {
+                    // TABLA VACÍA: Crear Admin
+                    const { error: e2 } = await _s.from('usuarios').insert([{ usuario: user, dni: dni }]);
+                    if (e2) throw new Error("Permiso denegado al crear admin: " + e2.message);
+                    
+                    m.className = "ok"; m.innerText = "✨ ¡Admin inicial creado con éxito!";
+                    m.style.display = "block";
+                } else {
+                    // TABLA CON DATOS: Login
+                    const { data, error: e3 } = await _s.from('usuarios')
+                        .select('*').eq('usuario', user).eq('dni', dni).single();
+
+                    if (e3 || !data) throw new Error("Credenciales incorrectas.");
+                }
+
+                localStorage.setItem('thiago_session', 'true');
+                setTimeout(() => window.location.href = 'admin.html', 800);
+
+            } catch (err) {
+                m.className = "err"; m.innerText = "❌ " + err.message;
+                m.style.display = "block";
+                btn.disabled = false; btn.innerText = "ENTRAR";
+            }
+        };
+    </script>
+</body>
+</html>
